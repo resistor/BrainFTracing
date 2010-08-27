@@ -152,6 +152,7 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
   if (node->left == 0 && node->right == 0) {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
     builder.CreateBr(Header);
+    return;
   }
   
   if (node->left != 0) {
