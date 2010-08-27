@@ -42,7 +42,7 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   builder.SetInsertPoint(Header);
   HeaderPHI = builder.CreatePHI(DataPtr->getType());
   HeaderPHI->addIncoming(DataPtr, Entry);
-  counter = 0;
+  DataPtr = HeaderPHI;
   compile_opcode(trace, builder);
   
   FunctionPassManager OurFPM(module);
@@ -116,7 +116,9 @@ void BrainFTraceRecorder::compile_right(BrainFTraceNode *node,
 void BrainFTraceRecorder::compile_put(BrainFTraceNode *node,
                                       IRBuilder<>& builder) {
   Value *Loaded = builder.CreateLoad(DataPtr);
-  builder.CreateCall(pchar, Loaded);
+  Value *Print =
+    builder.CreateSExt(Loaded, IntegerType::get(Loaded->getContext(), 32));
+  builder.CreateCall(pchar, Print);
   if (node->left)
     compile_opcode(node->left, builder);
   else {
@@ -128,7 +130,9 @@ void BrainFTraceRecorder::compile_put(BrainFTraceNode *node,
 void BrainFTraceRecorder::compile_get(BrainFTraceNode *node,
                                       IRBuilder<>& builder) {
   Value *Ret = builder.CreateCall(gchar);
-  builder.CreateStore(Ret, DataPtr);
+  Value *Trunc =
+    builder.CreateTrunc(Ret, IntegerType::get(Ret->getContext(), 8));
+  builder.CreateStore(Ret, Trunc);
   if (node->left)
     compile_opcode(node->left, builder);
   else {
