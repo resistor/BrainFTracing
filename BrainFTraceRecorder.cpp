@@ -13,8 +13,8 @@
 
 #define ITERATION_BUF_SIZE  1024
 #define TRACE_BUF_SIZE       128
-#define TRACE_THRESHOLD      100
-#define COMPILE_THRESHOLD    200
+#define TRACE_THRESHOLD      50
+#define COMPILE_THRESHOLD    100
 
 void BrainFTraceRecorder::BrainFTraceNode::dump(unsigned lvl) {
   for (unsigned i = 0; i < lvl; ++i)
