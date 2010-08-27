@@ -72,6 +72,7 @@ public:
   ~BrainFTraceRecorder();
   
   bool record(size_t &pc, uint8_t opcode, uint8_t** data);
+  void record_simple(size_t pc, uint8_t opcode);
 };
 
 #endif

@@ -59,65 +59,65 @@ int main(int argc, char **argv) {
   const uint8_t *CodeBegin = (const uint8_t*)(Code->getBufferStart());
   BrainFTraceRecorder tracer;
   
+  uint8_t opcode = CodeBegin[pc];
   while (CodeBegin[pc] != '\0') {
-    size_t old_pc = pc;
-    switch (CodeBegin[pc]) {
+    switch (opcode) {
       default:
         break;
       case '>':
-        if (tracer.record(pc, CodeBegin[pc], &data)) continue;
+        tracer.record_simple(pc, opcode);
         ++data;
         break;
       case '<':
-        if (tracer.record(pc, CodeBegin[pc], &data)) continue;
+        tracer.record_simple(pc, opcode);
         --data;
         break;
       case '+':
-        if (tracer.record(pc, CodeBegin[pc], &data)) continue;
+        tracer.record_simple(pc, opcode);
         *data += 1;
         break;
       case '-':
-        if (tracer.record(pc, CodeBegin[pc], &data)) continue;
+        tracer.record_simple(pc, opcode);
         *data -= 1;
         break;
       case '.':
-        if (tracer.record(pc, CodeBegin[pc], &data)) continue;
+        tracer.record_simple(pc, opcode);
         putchar(*data);
         break;
       case ',':
-        if (tracer.record(pc, CodeBegin[pc], &data)) continue;
+        tracer.record_simple(pc, opcode);
         *data = getchar();
         break;
       case '[':
-        if (tracer.record(pc, CodeBegin[pc], &data)) continue;
+        if (tracer.record(pc, opcode, &data)) continue;
         if (!*data) {
           unsigned count = 1;
-          ++pc;
+          opcode = CodeBegin[++pc];
           while (count > 0) {
-            if (CodeBegin[pc] == '[')
+            if (opcode == '[')
               ++count;
-            else if (CodeBegin[pc] == ']')
+            else if (opcode == ']')
               --count;
-            ++pc;
+            opcode = CodeBegin[++pc];
           }
           continue;
         }
         break;
       case ']':
-        if (tracer.record(pc, CodeBegin[pc], &data)) continue;
+        tracer.record_simple(pc, CodeBegin[pc]);
         unsigned count = 1;
-        --pc;
+        opcode = CodeBegin[--pc];
         while (count > 0) {
           if (CodeBegin[pc] == '[')
             --count;
           else if (CodeBegin[pc] == ']')
             ++count;
-          --pc;
+          opcode = CodeBegin[--pc];
         }
-        ++pc;
+        opcode = CodeBegin[++pc];
         continue;
     }
-    ++pc;
+    opcode = CodeBegin[++pc];
   }
 
   //Clean up

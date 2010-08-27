@@ -88,6 +88,19 @@ void BrainFTraceRecorder::commit() {
   }
 }
 
+void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
+  if (trace_tail != trace_begin) {
+    if (trace_tail == trace_end) {
+      trace_tail = trace_begin;
+    } else {
+      trace_tail->first = opcode;
+      trace_tail->second = pc;
+      ++trace_tail;
+    }
+  }
+  prev_opcode = opcode;
+}
+
 bool BrainFTraceRecorder::record(size_t &pc, uint8_t opcode, uint8_t** data) {
   if (code_map.count(pc)) {
     size_t old_pc = pc;
