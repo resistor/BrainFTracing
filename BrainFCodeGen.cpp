@@ -46,7 +46,34 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   compile_opcode(trace, builder);
   
   FunctionPassManager OurFPM(module);
-  createStandardFunctionPasses(&OurFPM, 3);
+  OurFPM.add(createInstructionCombiningPass());
+  OurFPM.add(createCFGSimplificationPass());
+  OurFPM.add(createScalarReplAggregatesPass());
+  OurFPM.add(createSimplifyLibCallsPass());    // Library Call Optimizations
+  OurFPM.add(createInstructionCombiningPass());  // Cleanup for scalarrepl.
+  OurFPM.add(createJumpThreadingPass());         // Thread jumps.
+  OurFPM.add(createCFGSimplificationPass());     // Merge & remove BBs
+  OurFPM.add(createInstructionCombiningPass());  // Combine silly seq's
+  
+  OurFPM.add(createCFGSimplificationPass());     // Merge & remove BBs
+  OurFPM.add(createReassociatePass());           // Reassociate expressions
+  // Explicitly schedule this to ensure that it runs before any loop pass.
+  OurFPM.add(new DominanceFrontier());           // Calculate Dominance Frontiers
+  OurFPM.add(createLoopRotatePass());            // Rotate Loop
+  OurFPM.add(createLICMPass());                  // Hoist loop invariants
+  OurFPM.add(createLoopUnswitchPass(false));
+  OurFPM.add(createInstructionCombiningPass());  
+  OurFPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
+  OurFPM.add(createLoopDeletionPass());
+  OurFPM.add(createLoopUnrollPass());          // Unroll small loops
+  OurFPM.add(createInstructionCombiningPass());  // Clean up after the unroller
+  OurFPM.add(createGVNPass());                 // Remove redundancies
+  OurFPM.add(createSCCPPass());                  // Constant prop with SCCP
+  OurFPM.add(createInstructionCombiningPass());
+  OurFPM.add(createJumpThreadingPass());         // Thread jumps
+  OurFPM.add(createDeadStoreEliminationPass());  // Delete dead stores
+  OurFPM.add(createAggressiveDCEPass());         // Delete dead instructions
+  OurFPM.add(createCFGSimplificationPass());     // Merge & remove BBs
 
   OurFPM.run(*curr_func);
   

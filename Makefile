@@ -10,6 +10,6 @@ LEVEL = ../..
 TOOLNAME = BrainFTracing
 EXAMPLE_TOOL = 1
 
-LINK_COMPONENTS := jit bitwriter nativecodegen interpreter
+LINK_COMPONENTS := scalaropts ipo jit bitwriter nativecodegen interpreter
 
 include $(LEVEL)/Makefile.common
