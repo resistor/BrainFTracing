@@ -47,7 +47,7 @@ BrainFTraceRecorder::~BrainFTraceRecorder() {
   
 #endif
   
-  module->dump();
+  //module->dump();
   delete[] iteration_count;
   delete[] trace_begin;
   delete EE;
