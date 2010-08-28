@@ -63,7 +63,7 @@ void BrainFTraceRecorder::compile_plus(BrainFTraceNode *node,
   Value *UpdatedValue = builder.CreateAdd(CellValue, One);
   builder.CreateStore(UpdatedValue, DataPtr);
   
-  if (node->left)
+  if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
@@ -79,7 +79,7 @@ void BrainFTraceRecorder::compile_minus(BrainFTraceNode *node,
   Value *UpdatedValue = builder.CreateSub(CellValue, One);
   builder.CreateStore(UpdatedValue, DataPtr);
   
-  if (node->left)
+  if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
@@ -91,7 +91,7 @@ void BrainFTraceRecorder::compile_left(BrainFTraceNode *node,
                                        IRBuilder<>& builder) {
   Instruction *OldPtr = DataPtr;
   DataPtr = cast<Instruction>(builder.CreateConstInBoundsGEP1_32(DataPtr, -1));
-  if (node->left)
+  if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
@@ -104,7 +104,7 @@ void BrainFTraceRecorder::compile_right(BrainFTraceNode *node,
                                         IRBuilder<>& builder) {
   Instruction *OldPtr = DataPtr;
   DataPtr = cast<Instruction>(builder.CreateConstInBoundsGEP1_32(DataPtr, 1));
-  if (node->left)
+  if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
@@ -119,7 +119,7 @@ void BrainFTraceRecorder::compile_put(BrainFTraceNode *node,
   Value *Print =
     builder.CreateSExt(Loaded, IntegerType::get(Loaded->getContext(), 32));
   builder.CreateCall(pchar, Print);
-  if (node->left)
+  if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
@@ -133,7 +133,7 @@ void BrainFTraceRecorder::compile_get(BrainFTraceNode *node,
   Value *Trunc =
     builder.CreateTrunc(Ret, IntegerType::get(Ret->getContext(), 8));
   builder.CreateStore(Ret, Trunc);
-  if (node->left)
+  if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
@@ -149,19 +149,17 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
   IRBuilder<> oldBuilder = builder;
   
   LLVMContext &Context = Header->getContext();
-  if (node->left == 0 && node->right == 0) {
+  if (node->left == (BrainFTraceNode*)~0ULL &&
+      node->right == (BrainFTraceNode*)~0ULL) {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
     builder.CreateBr(Header);
     return;
   }
   
-  if (node->left != 0) {
-    NonZeroChild = BasicBlock::Create(Context, 
-                                      utostr(node->left->pc), 
-                                      Header->getParent());
-    builder.SetInsertPoint(NonZeroChild);
-    compile_opcode(node->left, builder);
-  } else {
+  if (node->left == (BrainFTraceNode*)~0ULL) {
+    NonZeroChild = Header;
+    HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
+  } else if (node->left == 0) {
     NonZeroChild = BasicBlock::Create(Context,
                                    "exit_left_"+utostr(node->pc),
                                    Header->getParent());
@@ -171,15 +169,18 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                     IntegerType::getInt64Ty(Context);
     builder.CreateStore(DataPtr, Data);
     builder.CreateRet(ConstantInt::get(pc_type, node->pc));
+  } else {
+    NonZeroChild = BasicBlock::Create(Context, 
+                                      utostr(node->left->pc), 
+                                      Header->getParent());
+    builder.SetInsertPoint(NonZeroChild);
+    compile_opcode(node->left, builder);
   }
   
-  if (node->right != 0) {
-    ZeroChild = BasicBlock::Create(Context, 
-                                   utostr(node->right->pc), 
-                                   Header->getParent());
-    builder.SetInsertPoint(ZeroChild);
-    compile_opcode(node->right, builder);
-  } else {
+  if (node->right == (BrainFTraceNode*)~0ULL) {
+    ZeroChild = Header;
+    HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
+  } else if (node->right == 0) {
     ZeroChild = BasicBlock::Create(Context,
                                    "exit_right_"+utostr(node->pc),
                                    Header->getParent());
@@ -189,6 +190,12 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                     IntegerType::getInt64Ty(Context);
     builder.CreateStore(DataPtr, Data);
     builder.CreateRet(ConstantInt::get(pc_type, node->pc));
+  } else {
+    ZeroChild = BasicBlock::Create(Context, 
+                                      utostr(node->right->pc), 
+                                      Header->getParent());
+    builder.SetInsertPoint(ZeroChild);
+    compile_opcode(node->right, builder);
   }
   
   Value *Loaded = oldBuilder.CreateLoad(DataPtr);
@@ -199,7 +206,7 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                                                                                                                                                                                                                                                                                
 void BrainFTraceRecorder::compile_back(BrainFTraceNode *node,
                                        IRBuilder<>& builder) {
-  if (node->right)
+  if (node->right != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->right, builder);
   else {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());

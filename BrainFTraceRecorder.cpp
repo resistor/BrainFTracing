@@ -12,16 +12,16 @@
 #include "llvm/Support/raw_ostream.h"
 
 #define ITERATION_BUF_SIZE  1024
-#define TRACE_BUF_SIZE       128
+#define TRACE_BUF_SIZE       256
 #define TRACE_THRESHOLD      50
-#define COMPILE_THRESHOLD    100
+#define COMPILE_THRESHOLD    200
 
 void BrainFTraceRecorder::BrainFTraceNode::dump(unsigned lvl) {
   for (unsigned i = 0; i < lvl; ++i)
     outs() << '.';
   outs() << opcode << " : " << pc << "\n";
-  if (left) left->dump(lvl+1);
-  if (right) right->dump(lvl+1);
+  if (left && left != (BrainFTraceNode*)~0ULL) left->dump(lvl+1);
+  if (right && right != (BrainFTraceNode*)~0ULL) right->dump(lvl+1);
 }
 
 BrainFTraceRecorder::BrainFTraceRecorder()
@@ -47,7 +47,7 @@ BrainFTraceRecorder::~BrainFTraceRecorder() {
   
 #endif
   
-  //module->dump();
+  module->dump();
   delete[] iteration_count;
   delete[] trace_begin;
   delete EE;
@@ -86,6 +86,11 @@ void BrainFTraceRecorder::commit() {
     Parent = Child;
     ++trace_iter;
   }
+  
+  if (Parent->pc+1 == Head->pc)
+    Parent->left = (BrainFTraceNode*)~0ULL;
+  else
+    Parent->right = (BrainFTraceNode*)~0ULL;
 }
 
 void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {

@@ -35,6 +35,8 @@ class BrainFTraceRecorder {
     void dump(unsigned level);
     
     // On an if, left is the x != 0 edge.
+    // A value of 0 indicates an un-traced edge.
+    // A value of ~0ULL indicates an edge to the trace head.
     BrainFTraceNode *left, *right;
   };
   
