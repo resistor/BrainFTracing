@@ -48,6 +48,42 @@ int main(int argc, char **argv) {
 
   //Get the input stream
   MemoryBuffer *Code = MemoryBuffer::getFileOrSTDIN(InputFilename);
+  MemoryBuffer *ParsedCode =
+    MemoryBuffer::getNewMemBuffer(Code->getBufferSize());
+  const uint8_t *CodeBegin = (const uint8_t*)(Code->getBufferStart());
+  uint8_t *ParsedBegin = (uint8_t*)(ParsedCode->getBufferStart());
+  size_t ParsedOffset = 0;
+  
+  size_t *JumpMap = new size_t[Code->getBufferSize()];
+  memset(JumpMap, 0, sizeof(size_t) * Code->getBufferSize());
+  std::vector<size_t> Stack;
+  
+  for (size_t i = 0; i < Code->getBufferSize(); ++i) {
+    uint8_t opcode = CodeBegin[i];
+    switch (opcode) {
+      case '[':
+        Stack.push_back(ParsedOffset);
+        // FALLTHROUGH
+      case '>':
+      case '<':
+      case '+':
+      case '-':
+      case '.':
+      case ',':
+        ParsedBegin[ParsedOffset] = opcode;
+        ++ParsedOffset;
+        break;
+      case ']':
+        JumpMap[Stack.back()] = ParsedOffset;
+        JumpMap[ParsedOffset] = Stack.back();
+        Stack.pop_back();
+        ParsedBegin[ParsedOffset] = opcode;
+        ++ParsedOffset;
+        break;
+      default:
+        continue;
+    }
+  }
   
   // Setup the array
   uint8_t *BrainFArray = new uint8_t[32768];
@@ -56,11 +92,10 @@ int main(int argc, char **argv) {
   // Main interpreter loop
   size_t pc = 0;
   uint8_t* data = BrainFArray;
-  const uint8_t *CodeBegin = (const uint8_t*)(Code->getBufferStart());
   BrainFTraceRecorder tracer;
   
-  uint8_t opcode = CodeBegin[pc];
-  while (CodeBegin[pc] != '\0') {
+  uint8_t opcode = ParsedBegin[pc];
+  while (ParsedBegin[pc] != '\0') {
     switch (opcode) {
       default:
         break;
@@ -90,39 +125,22 @@ int main(int argc, char **argv) {
         break;
       case '[':
         if (tracer.record(pc, opcode, &data)) continue;
-        if (!*data) {
-          unsigned count = 1;
-          opcode = CodeBegin[++pc];
-          while (count > 0) {
-            if (opcode == '[')
-              ++count;
-            else if (opcode == ']')
-              --count;
-            opcode = CodeBegin[++pc];
-          }
-          continue;
-        }
+        if (!*data) pc = JumpMap[pc];
         break;
       case ']':
-        tracer.record_simple(pc, CodeBegin[pc]);
-        unsigned count = 1;
-        opcode = CodeBegin[--pc];
-        while (count > 0) {
-          if (CodeBegin[pc] == '[')
-            --count;
-          else if (CodeBegin[pc] == ']')
-            ++count;
-          opcode = CodeBegin[--pc];
-        }
-        opcode = CodeBegin[++pc];
+        tracer.record_simple(pc, opcode);
+        pc = JumpMap[pc];
+        opcode = ParsedBegin[pc];
         continue;
     }
-    opcode = CodeBegin[++pc];
+    opcode = ParsedBegin[++pc];
   }
 
   //Clean up
   delete Code;
+  delete ParsedCode;
   delete[] BrainFArray;
+  delete[] JumpMap;
 
   return 0;
 }
