@@ -8,6 +8,7 @@
 //===--------------------------------------------------------------------===//
 
 #include "BrainF.h"
+#include "BrainFVM.h"
 #include "llvm/Target/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -39,7 +40,6 @@ BrainFTraceRecorder::BrainFTraceRecorder()
 }
 
 BrainFTraceRecorder::~BrainFTraceRecorder() {
-  module->dump();
   delete[] iteration_count;
   delete[] trace_begin;
   delete EE;
@@ -76,6 +76,11 @@ void BrainFTraceRecorder::commit() {
 }
 
 void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
+  if (executed) {
+    executed = false;
+    trace_tail = trace_begin;
+  }
+  
   if (trace_tail != trace_begin) {
     if (trace_tail == trace_end) {
       trace_tail = trace_begin;
@@ -89,9 +94,9 @@ void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
 }
 
 void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
-  if (compile_map.count(pc)) {
+  if (executed) {
+    executed = false;
     trace_tail = trace_begin;
-    return;
   }
   
   if (trace_tail != trace_begin) {

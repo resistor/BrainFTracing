@@ -53,7 +53,7 @@ class BrainFTraceRecorder {
 
   const IntegerType *int_type;
   const FunctionType *op_type;
-  GlobalValue *bytecode_array;
+  GlobalValue *bytecode_array, *executed_flag;
   Value *getchar_func, *putchar_func;
   
   

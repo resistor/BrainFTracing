@@ -23,6 +23,7 @@ typedef void(*opcode_func_t)(size_t pc, uint8_t* data);
 
 extern opcode_func_t *BytecodeArray;
 extern size_t *JumpMap;
+extern uint8_t executed;
 
 extern BrainFTraceRecorder *Recorder;
 

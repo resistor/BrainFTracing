@@ -12,6 +12,7 @@
 
 opcode_func_t *BytecodeArray = 0;
 size_t *JumpMap = 0;
+uint8_t executed = 0;
 
 BrainFTraceRecorder *Recorder = 0;
 

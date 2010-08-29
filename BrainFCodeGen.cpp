@@ -31,6 +31,11 @@ void BrainFTraceRecorder::initialize_module() {
   op_type =
     FunctionType::get(Type::getVoidTy(Context), args, false);
   
+  const IntegerType *flag_type = IntegerType::get(Context, 8);
+  executed_flag =
+    cast<GlobalValue>(module->getOrInsertGlobal("executed", flag_type));
+  EE->addGlobalMapping(executed_flag, &executed);
+  
   const Type *bytecode_type = PointerType::getUnqual(op_type);
   bytecode_array = cast<GlobalValue>(module->
     getOrInsertGlobal("BytecodeArray", bytecode_type));
@@ -55,6 +60,10 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   Argument *Arg1 = ++curr_func->arg_begin();
   Arg1->addAttr(Attribute::NoAlias);
   DataPtr = Arg1;
+  
+  const IntegerType *flag_type = IntegerType::get(Context, 8);
+  ConstantInt *True = ConstantInt::get(flag_type, 1);
+  builder.CreateStore(True, executed_flag);
   builder.CreateBr(Header);
   
   builder.SetInsertPoint(Header);
@@ -63,7 +72,6 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   DataPtr = HeaderPHI;
   compile_opcode(trace, builder);
 
-#if 0
   FunctionPassManager OurFPM(module);
   OurFPM.add(createInstructionCombiningPass());
   OurFPM.add(createCFGSimplificationPass());
@@ -95,7 +103,6 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   OurFPM.add(createCFGSimplificationPass());     // Merge & remove BBs
 
   OurFPM.run(*curr_func);
-#endif
   
   compile_map[trace->pc] = curr_func;
   void *code = EE->getPointerToFunction(curr_func);
