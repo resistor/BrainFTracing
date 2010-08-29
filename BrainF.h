@@ -44,7 +44,6 @@ class BrainFTraceRecorder {
   uint8_t *iteration_count;
   std::pair<uint8_t, size_t> *trace_begin, *trace_end, *trace_tail;
   DenseMap<size_t, BrainFTraceNode*> trace_map;
-  DenseMap<size_t, Function*> compile_map;
   Module *module;
   BasicBlock *Header;
   Value *DataPtr;

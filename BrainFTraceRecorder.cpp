@@ -34,7 +34,9 @@ BrainFTraceRecorder::BrainFTraceRecorder()
   memset(iteration_count, 0, ITERATION_BUF_SIZE);
   memset(trace_begin, 0, sizeof(std::pair<uint8_t, size_t>) * TRACE_BUF_SIZE);
   InitializeNativeTarget();
-  EE = EngineBuilder(module).create();
+  EngineBuilder builder(module);
+  builder.setOptLevel(CodeGenOpt::Aggressive);
+  EE = builder.create();
   
   initialize_module();
 }

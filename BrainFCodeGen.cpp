@@ -104,14 +104,9 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
 
   OurFPM.run(*curr_func);
   
-  compile_map[trace->pc] = curr_func;
   void *code = EE->getPointerToFunction(curr_func);
   BytecodeArray[trace->pc] =
     (opcode_func_t)(intptr_t)code;
-#if 0
-  code_map[trace->pc] =
-    (trace_func_t)(intptr_t)(EE->getPointerToFunction(curr_func));
-#endif
 }
 
 void BrainFTraceRecorder::compile_plus(BrainFTraceNode *node,
