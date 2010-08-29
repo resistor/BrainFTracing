@@ -15,6 +15,7 @@
 #include "llvm/ADT/StringExtras.h"
 
 void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
+#if 0
   LLVMContext &Context = module->getContext();
   
   const Type *int_type = sizeof(int) == 4 ? IntegerType::getInt32Ty(Context)
@@ -80,6 +81,7 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   compile_map[trace->pc] = curr_func;
   code_map[trace->pc] =
     (trace_func_t)(intptr_t)(EE->getPointerToFunction(curr_func));
+#endif
 }
 
 void BrainFTraceRecorder::compile_plus(BrainFTraceNode *node,

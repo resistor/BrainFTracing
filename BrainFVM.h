@@ -15,12 +15,15 @@
 #ifndef BRAINF_VM_H
 #define BRAINF_VM_H
 
+#include "BrainF.h"
 #include "stdint.h"
 #include <cstring>
 
 typedef void(*opcode_func_t)(size_t pc, uint8_t* data);
 extern opcode_func_t *BytecodeArray;
 extern size_t *JumpMap;
+
+extern BrainFTraceRecorder *Recorder;
 
 void op_plus(size_t, uint8_t*);
 void op_minus(size_t, uint8_t*);

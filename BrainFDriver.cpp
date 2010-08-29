@@ -60,6 +60,8 @@ int main(int argc, char **argv) {
   memset(JumpMap, 0, sizeof(size_t) * Code->getBufferSize());
   std::vector<size_t> Stack;
   
+  Recorder = new BrainFTraceRecorder();
+  
   for (size_t i = 0; i < Code->getBufferSize(); ++i) {
     uint8_t opcode = CodeBegin[i];
     switch (opcode) {
@@ -111,6 +113,7 @@ int main(int argc, char **argv) {
   BytecodeArray[0](0, data);
   
   //Clean up
+  delete Recorder;
   delete Code;
   delete ParsedCode;
   delete[] BrainFArray;

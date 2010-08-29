@@ -37,33 +37,12 @@ BrainFTraceRecorder::BrainFTraceRecorder()
 }
 
 BrainFTraceRecorder::~BrainFTraceRecorder() {
-#if 0
-  for (DenseMap<size_t, BrainFTraceNode*>::iterator I = trace_map.begin(), 
-       E = trace_map.end(); I != E; ++I) {
-    outs() << "Recorded Trace:\n";
-    I->second->dump(1);
-    outs() << "\n";
-  }
-  
-#endif
-  
-  //module->dump();
   delete[] iteration_count;
   delete[] trace_begin;
   delete EE;
 }
 
 void BrainFTraceRecorder::commit() {
-#if 0
-  outs() << "Committing trace: ";
-  for (BrainFTraceNode *begin = trace_begin, *end = trace_tail;
-       begin != end; ++begin) {
-    outs() << begin->opcode;
-  }
-  
-  outs() << "\n";
-#endif
-
   BrainFTraceNode *&Head = trace_map[trace_begin->second];
   if (!Head)
     Head = new BrainFTraceNode(trace_begin->first, trace_begin->second);
@@ -106,14 +85,7 @@ void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
   prev_opcode = opcode;
 }
 
-bool BrainFTraceRecorder::record(size_t &pc, uint8_t opcode, uint8_t** data) {
-  if (code_map.count(pc)) {
-    size_t old_pc = pc;
-    pc = code_map[pc](data);
-    trace_tail = trace_begin;
-    return old_pc != pc;
-  }
-  
+bool BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
   if (trace_tail != trace_begin) {
     if (pc == trace_begin->second) {
       commit();

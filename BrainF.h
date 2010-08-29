@@ -47,7 +47,6 @@ class BrainFTraceRecorder {
   std::pair<uint8_t, size_t> *trace_begin, *trace_end, *trace_tail;
   DenseMap<size_t, BrainFTraceNode*> trace_map;
   DenseMap<size_t, Function*> compile_map;
-  DenseMap<size_t, trace_func_t> code_map;
   Module *module;
   BasicBlock *Header;
   Value *PC, *Data, *pchar, *gchar;
@@ -73,7 +72,7 @@ public:
   BrainFTraceRecorder();
   ~BrainFTraceRecorder();
   
-  bool record(size_t &pc, uint8_t opcode, uint8_t** data);
+  bool record(size_t pc, uint8_t opcode);
   void record_simple(size_t pc, uint8_t opcode);
 };
 
