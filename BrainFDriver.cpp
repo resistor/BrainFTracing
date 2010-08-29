@@ -26,6 +26,7 @@
 //===--------------------------------------------------------------------===//
 
 #include "BrainF.h"
+#include "BrainFVM.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
@@ -49,40 +50,54 @@ int main(int argc, char **argv) {
   //Get the input stream
   MemoryBuffer *Code = MemoryBuffer::getFileOrSTDIN(InputFilename);
   MemoryBuffer *ParsedCode =
-    MemoryBuffer::getNewMemBuffer(Code->getBufferSize());
+    MemoryBuffer::getNewMemBuffer(sizeof(opcode_func_t) * 
+                                  (Code->getBufferSize()+1));
   const uint8_t *CodeBegin = (const uint8_t*)(Code->getBufferStart());
-  uint8_t *ParsedBegin = (uint8_t*)(ParsedCode->getBufferStart());
-  size_t ParsedOffset = 0;
+  BytecodeArray = (opcode_func_t*)(ParsedCode->getBufferStart());
+  size_t BytecodeOffset = 0;
   
-  size_t *JumpMap = new size_t[Code->getBufferSize()];
+  JumpMap = new size_t[Code->getBufferSize()];
   memset(JumpMap, 0, sizeof(size_t) * Code->getBufferSize());
   std::vector<size_t> Stack;
   
   for (size_t i = 0; i < Code->getBufferSize(); ++i) {
     uint8_t opcode = CodeBegin[i];
     switch (opcode) {
-      case '[':
-        Stack.push_back(ParsedOffset);
-        // FALLTHROUGH
       case '>':
+        BytecodeArray[BytecodeOffset++] = &op_right;
+        break;
       case '<':
+        BytecodeArray[BytecodeOffset++] = &op_left;
+        break;
       case '+':
+        BytecodeArray[BytecodeOffset++] = &op_plus;
+        break;
       case '-':
+        BytecodeArray[BytecodeOffset++] = &op_minus;
+        break;
       case '.':
+        BytecodeArray[BytecodeOffset++] = &op_put;
+        break;
       case ',':
-        ParsedBegin[ParsedOffset] = opcode;
-        ++ParsedOffset;
+        BytecodeArray[BytecodeOffset++] = &op_get;
+        break;
+      case '[':
+        Stack.push_back(BytecodeOffset);
+        BytecodeArray[BytecodeOffset++] = &op_if;
         break;
       case ']':
-        JumpMap[Stack.back()] = ParsedOffset;
-        JumpMap[ParsedOffset] = Stack.back();
+        JumpMap[Stack.back()] = BytecodeOffset;
+        JumpMap[BytecodeOffset] = Stack.back();
         Stack.pop_back();
-        ParsedBegin[ParsedOffset] = opcode;
-        ++ParsedOffset;
+        BytecodeArray[BytecodeOffset++] = &op_back;
         break;
       default:
         continue;
     }
+  }
+  
+  while (BytecodeOffset < Code->getBufferSize()+1) {
+    BytecodeArray[BytecodeOffset++] = &op_end;
   }
   
   // Setup the array
@@ -90,52 +105,11 @@ int main(int argc, char **argv) {
   memset(BrainFArray, 0, 32768);
   
   // Main interpreter loop
-  size_t pc = 0;
   uint8_t* data = BrainFArray;
   BrainFTraceRecorder tracer;
   
-  uint8_t opcode = ParsedBegin[pc];
-  while (ParsedBegin[pc] != '\0') {
-    switch (opcode) {
-      default:
-        break;
-      case '>':
-        tracer.record_simple(pc, opcode);
-        ++data;
-        break;
-      case '<':
-        tracer.record_simple(pc, opcode);
-        --data;
-        break;
-      case '+':
-        tracer.record_simple(pc, opcode);
-        *data += 1;
-        break;
-      case '-':
-        tracer.record_simple(pc, opcode);
-        *data -= 1;
-        break;
-      case '.':
-        tracer.record_simple(pc, opcode);
-        putchar(*data);
-        break;
-      case ',':
-        tracer.record_simple(pc, opcode);
-        *data = getchar();
-        break;
-      case '[':
-        if (tracer.record(pc, opcode, &data)) continue;
-        if (!*data) pc = JumpMap[pc];
-        break;
-      case ']':
-        tracer.record_simple(pc, opcode);
-        pc = JumpMap[pc];
-        opcode = ParsedBegin[pc];
-        continue;
-    }
-    opcode = ParsedBegin[++pc];
-  }
-
+  BytecodeArray[0](0, data);
+  
   //Clean up
   delete Code;
   delete ParsedCode;

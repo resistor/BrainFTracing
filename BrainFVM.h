@@ -19,9 +19,8 @@
 #include <cstring>
 
 typedef void(*opcode_func_t)(size_t pc, uint8_t* data);
-opcode_func_t *BytecodeArray;
-
-size_t *JumpMap;
+extern opcode_func_t *BytecodeArray;
+extern size_t *JumpMap;
 
 void op_plus(size_t, uint8_t*);
 void op_minus(size_t, uint8_t*);
@@ -31,6 +30,7 @@ void op_put(size_t, uint8_t*);
 void op_get(size_t, uint8_t*);
 void op_if(size_t, uint8_t*);
 void op_back(size_t, uint8_t*);
+void op_end(size_t, uint8_t*);
 
 
 #endif
