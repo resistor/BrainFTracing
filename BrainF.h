@@ -40,8 +40,6 @@ class BrainFTraceRecorder {
     BrainFTraceNode *left, *right;
   };
   
-  typedef size_t(*trace_func_t)(uint8_t**);
-  
   uint8_t prev_opcode;
   uint8_t *iteration_count;
   std::pair<uint8_t, size_t> *trace_begin, *trace_end, *trace_tail;
@@ -49,14 +47,18 @@ class BrainFTraceRecorder {
   DenseMap<size_t, Function*> compile_map;
   Module *module;
   BasicBlock *Header;
-  Value *PC, *Data, *pchar, *gchar;
-  Instruction *DataPtr;
+  Value *DataPtr;
   PHINode *HeaderPHI;
   ExecutionEngine *EE;
-  unsigned counter;
+
+  const IntegerType *int_type;
+  const FunctionType *op_type;
+  GlobalValue *bytecode_array;
+  Value *getchar_func, *putchar_func;
   
   
   void commit();
+  void initialize_module();
   void compile(BrainFTraceNode* trace);
   void compile_opcode(BrainFTraceNode *node, IRBuilder<>& builder);
   void compile_plus(BrainFTraceNode *node, IRBuilder<>& builder);
@@ -72,7 +74,7 @@ public:
   BrainFTraceRecorder();
   ~BrainFTraceRecorder();
   
-  bool record(size_t pc, uint8_t opcode);
+  void record(size_t pc, uint8_t opcode);
   void record_simple(size_t pc, uint8_t opcode);
 };
 

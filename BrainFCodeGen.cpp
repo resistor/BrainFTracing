@@ -8,36 +8,53 @@
 //===--------------------------------------------------------------------===//
 
 #include "BrainF.h"
+#include "BrainFVM.h"
+#include "llvm/Attributes.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/StandardPasses.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/StringExtras.h"
 
-void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
-#if 0
+void BrainFTraceRecorder::initialize_module() {
   LLVMContext &Context = module->getContext();
   
-  const Type *int_type = sizeof(int) == 4 ? IntegerType::getInt32Ty(Context)
-                                       : IntegerType::getInt64Ty(Context);
-  pchar = module->getOrInsertFunction("putchar", int_type, int_type, NULL);
-  gchar = module->getOrInsertFunction("getchar", int_type, NULL);
-  
-  const Type *pc_type = sizeof(size_t) == 4 ? 
+  int_type = sizeof(size_t) == 4 ? 
                   IntegerType::getInt32Ty(Context) : 
                   IntegerType::getInt64Ty(Context);
-  const Type *data_type = PointerType::getUnqual(
-    PointerType::getUnqual(IntegerType::getInt8Ty(Context)));
+  const Type *data_type =
+    PointerType::getUnqual(IntegerType::getInt8Ty(Context));
+  
+  std::vector<const Type*> args;
+  args.push_back(int_type);
+  args.push_back(data_type);
+  op_type =
+    FunctionType::get(Type::getVoidTy(Context), args, false);
+  
+  const Type *bytecode_type = PointerType::getUnqual(op_type);
+  bytecode_array = cast<GlobalValue>(module->
+    getOrInsertGlobal("BytecodeArray", bytecode_type));
+  EE->addGlobalMapping(bytecode_array, BytecodeArray);
+
+  const Type *int_type = sizeof(int) == 4 ? IntegerType::getInt32Ty(Context)
+                                       : IntegerType::getInt64Ty(Context);
+  putchar_func =
+    module->getOrInsertFunction("putchar", int_type, int_type, NULL);
+  getchar_func = module->getOrInsertFunction("getchar", int_type, NULL);
+}
+
+void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
+  LLVMContext &Context = module->getContext();
   Function *curr_func = cast<Function>(module->
-    getOrInsertFunction("trace_"+utostr(trace->pc),
-                        pc_type, data_type, NULL));
+    getOrInsertFunction("trace_"+utostr(trace->pc), op_type));
   
   BasicBlock *Entry = BasicBlock::Create(Context, "entry", curr_func);
   Header = BasicBlock::Create(Context, utostr(trace->pc), curr_func);
   
   IRBuilder<> builder(Entry);
-  Data = curr_func->arg_begin();
-  DataPtr = builder.CreateLoad(Data);
+  Argument *Arg1 = ++curr_func->arg_begin();
+  Arg1->addAttr(Attribute::NoAlias);
+  DataPtr = Arg1;
   builder.CreateBr(Header);
   
   builder.SetInsertPoint(Header);
@@ -45,7 +62,8 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   HeaderPHI->addIncoming(DataPtr, Entry);
   DataPtr = HeaderPHI;
   compile_opcode(trace, builder);
-  
+
+#if 0
   FunctionPassManager OurFPM(module);
   OurFPM.add(createInstructionCombiningPass());
   OurFPM.add(createCFGSimplificationPass());
@@ -77,8 +95,13 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   OurFPM.add(createCFGSimplificationPass());     // Merge & remove BBs
 
   OurFPM.run(*curr_func);
+#endif
   
   compile_map[trace->pc] = curr_func;
+  void *code = EE->getPointerToFunction(curr_func);
+  BytecodeArray[trace->pc] =
+    (opcode_func_t)(intptr_t)code;
+#if 0
   code_map[trace->pc] =
     (trace_func_t)(intptr_t)(EE->getPointerToFunction(curr_func));
 #endif
@@ -118,8 +141,8 @@ void BrainFTraceRecorder::compile_minus(BrainFTraceNode *node,
                                                                             
 void BrainFTraceRecorder::compile_left(BrainFTraceNode *node,
                                        IRBuilder<>& builder) {
-  Instruction *OldPtr = DataPtr;
-  DataPtr = cast<Instruction>(builder.CreateConstInBoundsGEP1_32(DataPtr, -1));
+  Value *OldPtr = DataPtr;
+  DataPtr = builder.CreateConstInBoundsGEP1_32(DataPtr, -1);
   if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
@@ -131,8 +154,8 @@ void BrainFTraceRecorder::compile_left(BrainFTraceNode *node,
                                                                                                                    
 void BrainFTraceRecorder::compile_right(BrainFTraceNode *node,
                                         IRBuilder<>& builder) {
-  Instruction *OldPtr = DataPtr;
-  DataPtr = cast<Instruction>(builder.CreateConstInBoundsGEP1_32(DataPtr, 1));
+  Value *OldPtr = DataPtr;
+  DataPtr = builder.CreateConstInBoundsGEP1_32(DataPtr, 1);
   if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
@@ -147,7 +170,7 @@ void BrainFTraceRecorder::compile_put(BrainFTraceNode *node,
   Value *Loaded = builder.CreateLoad(DataPtr);
   Value *Print =
     builder.CreateSExt(Loaded, IntegerType::get(Loaded->getContext(), 32));
-  builder.CreateCall(pchar, Print);
+  builder.CreateCall(putchar_func, Print);
   if (node->left != (BrainFTraceNode*)~0ULL)
     compile_opcode(node->left, builder);
   else {
@@ -158,7 +181,7 @@ void BrainFTraceRecorder::compile_put(BrainFTraceNode *node,
                                                                                                                                                                                                  
 void BrainFTraceRecorder::compile_get(BrainFTraceNode *node,
                                       IRBuilder<>& builder) {
-  Value *Ret = builder.CreateCall(gchar);
+  Value *Ret = builder.CreateCall(getchar_func);
   Value *Trunc =
     builder.CreateTrunc(Ret, IntegerType::get(Ret->getContext(), 8));
   builder.CreateStore(Ret, Trunc);
@@ -193,11 +216,13 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                                    "exit_left_"+utostr(node->pc),
                                    Header->getParent());
     builder.SetInsertPoint(NonZeroChild);
-    const Type *pc_type = sizeof(size_t) == 32 ? 
-                    IntegerType::getInt32Ty(Context) : 
-                    IntegerType::getInt64Ty(Context);
-    builder.CreateStore(DataPtr, Data);
-    builder.CreateRet(ConstantInt::get(pc_type, node->pc));
+    ConstantInt *NewPc = ConstantInt::get(int_type, node->pc+1);
+    Value *BytecodeIndex =
+      builder.CreateConstInBoundsGEP1_32(bytecode_array, node->pc+1);
+    Value *Target = builder.CreateLoad(BytecodeIndex);
+    CallInst *Call =cast<CallInst>(builder.CreateCall2(Target, NewPc, DataPtr));
+    Call->setTailCall();
+    builder.CreateRetVoid();
   } else {
     NonZeroChild = BasicBlock::Create(Context, 
                                       utostr(node->left->pc), 
@@ -214,11 +239,13 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                                    "exit_right_"+utostr(node->pc),
                                    Header->getParent());
     builder.SetInsertPoint(ZeroChild);
-    const Type *pc_type = sizeof(size_t) == 32 ? 
-                    IntegerType::getInt32Ty(Context) : 
-                    IntegerType::getInt64Ty(Context);
-    builder.CreateStore(DataPtr, Data);
-    builder.CreateRet(ConstantInt::get(pc_type, node->pc));
+    ConstantInt *NewPc = ConstantInt::get(int_type, JumpMap[node->pc]+1);
+    Value *BytecodeIndex =
+      builder.CreateConstInBoundsGEP1_32(bytecode_array, JumpMap[node->pc]+1);
+    Value *Target = builder.CreateLoad(BytecodeIndex);
+    CallInst *Call =cast<CallInst>(builder.CreateCall2(Target, NewPc, DataPtr));
+    Call->setTailCall();
+    builder.CreateRetVoid();
   } else {
     ZeroChild = BasicBlock::Create(Context, 
                                       utostr(node->right->pc), 

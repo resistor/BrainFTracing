@@ -34,9 +34,12 @@ BrainFTraceRecorder::BrainFTraceRecorder()
   memset(trace_begin, 0, sizeof(std::pair<uint8_t, size_t>) * TRACE_BUF_SIZE);
   InitializeNativeTarget();
   EE = EngineBuilder(module).create();
+  
+  initialize_module();
 }
 
 BrainFTraceRecorder::~BrainFTraceRecorder() {
+  module->dump();
   delete[] iteration_count;
   delete[] trace_begin;
   delete EE;
@@ -85,7 +88,12 @@ void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
   prev_opcode = opcode;
 }
 
-bool BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
+void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
+  if (compile_map.count(pc)) {
+    trace_tail = trace_begin;
+    return;
+  }
+  
   if (trace_tail != trace_begin) {
     if (pc == trace_begin->second) {
       commit();
@@ -110,5 +118,4 @@ bool BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
   }
   
   prev_opcode = opcode;
-  return false;
 }
