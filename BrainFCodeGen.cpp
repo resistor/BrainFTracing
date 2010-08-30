@@ -1,4 +1,4 @@
-//===-- BrainFDriver.cpp - BrainF compiler driver -----------------------===//
+//===-- BrainFCodeGen.cpp - BrainF compiler driver -----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,69 +12,80 @@
 #include "llvm/Attributes.h"
 #include "llvm/Support/StandardPasses.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/StringExtras.h"
 
+/// initialize_module - perform setup of the LLVM code generation system.
 void BrainFTraceRecorder::initialize_module() {
   LLVMContext &Context = module->getContext();
   
+  // Initialize the code generator, and enable aggressive code generation.
+  InitializeNativeTarget();
+  EngineBuilder builder(module);
+  builder.setOptLevel(CodeGenOpt::Aggressive);
+  EE = builder.create();
+  
+  // Create a FunctionPassManager to handle running optimization passes
+  // on our generated code.  Setup a basic suite of optimizations for it.
+  FPM = new llvm::FunctionPassManager(module);
+  FPM->add(createInstructionCombiningPass());
+  FPM->add(createCFGSimplificationPass());
+  FPM->add(createScalarReplAggregatesPass());
+  FPM->add(createSimplifyLibCallsPass());
+  FPM->add(createInstructionCombiningPass());
+  FPM->add(createJumpThreadingPass());
+  FPM->add(createCFGSimplificationPass());
+  FPM->add(createInstructionCombiningPass());
+  FPM->add(createCFGSimplificationPass());
+  FPM->add(createReassociatePass());
+  FPM->add(createLoopRotatePass());
+  FPM->add(createLICMPass());
+  FPM->add(createLoopUnswitchPass(false));
+  FPM->add(createInstructionCombiningPass());  
+  FPM->add(createIndVarSimplifyPass());
+  FPM->add(createLoopDeletionPass());
+  FPM->add(createLoopUnrollPass());
+  FPM->add(createInstructionCombiningPass());
+  FPM->add(createGVNPass());
+  FPM->add(createSCCPPass());
+  FPM->add(createInstructionCombiningPass());
+  FPM->add(createJumpThreadingPass());
+  FPM->add(createDeadStoreEliminationPass());
+  FPM->add(createAggressiveDCEPass());
+  FPM->add(createCFGSimplificationPass());
+  
+  // Cache the LLVM type signature of an opcode function
   int_type = sizeof(size_t) == 4 ? 
                   IntegerType::getInt32Ty(Context) : 
                   IntegerType::getInt64Ty(Context);
   const Type *data_type =
     PointerType::getUnqual(IntegerType::getInt8Ty(Context));
-  
   std::vector<const Type*> args;
   args.push_back(int_type);
   args.push_back(data_type);
   op_type =
     FunctionType::get(Type::getVoidTy(Context), args, false);
   
-  const IntegerType *flag_type = IntegerType::get(Context, 8);
-  executed_flag =
-    cast<GlobalValue>(module->getOrInsertGlobal("executed", flag_type));
-  EE->addGlobalMapping(executed_flag, &executed);
-  
+  // Setup a global variable in the LLVM module to represent the bytecode
+  // array.  Bind it to the actual bytecode array at JIT time.
   const Type *bytecode_type = PointerType::getUnqual(op_type);
   bytecode_array = cast<GlobalValue>(module->
     getOrInsertGlobal("BytecodeArray", bytecode_type));
   EE->addGlobalMapping(bytecode_array, BytecodeArray);
+  
+  // Setup a similar mapping for the global executed flag.
+  const IntegerType *flag_type = IntegerType::get(Context, 8);
+  executed_flag =
+    cast<GlobalValue>(module->getOrInsertGlobal("executed", flag_type));
+  EE->addGlobalMapping(executed_flag, &executed);
 
+  // Cache LLVM declarations for putchar() and getchar().
   const Type *int_type = sizeof(int) == 4 ? IntegerType::getInt32Ty(Context)
                                        : IntegerType::getInt64Ty(Context);
   putchar_func =
     module->getOrInsertFunction("putchar", int_type, int_type, NULL);
   getchar_func = module->getOrInsertFunction("getchar", int_type, NULL);
-  
-  FPM = new llvm::FunctionPassManager(module);
-  FPM->add(createInstructionCombiningPass());
-  FPM->add(createCFGSimplificationPass());
-  FPM->add(createScalarReplAggregatesPass());
-  FPM->add(createSimplifyLibCallsPass());    // Library Call Optimizations
-  FPM->add(createInstructionCombiningPass());  // Cleanup for scalarrepl.
-  FPM->add(createJumpThreadingPass());         // Thread jumps.
-  FPM->add(createCFGSimplificationPass());     // Merge & remove BBs
-  FPM->add(createInstructionCombiningPass());  // Combine silly seq's
-  
-  FPM->add(createCFGSimplificationPass());     // Merge & remove BBs
-  FPM->add(createReassociatePass());           // Reassociate expressions
-  // Explicitly schedule this to ensure that it runs before any loop pass.
-  FPM->add(new DominanceFrontier());           // Calculate Dominance Frontiers
-  FPM->add(createLoopRotatePass());            // Rotate Loop
-  FPM->add(createLICMPass());                  // Hoist loop invariants
-  FPM->add(createLoopUnswitchPass(false));
-  FPM->add(createInstructionCombiningPass());  
-  FPM->add(createIndVarSimplifyPass());        // Canonicalize indvars
-  FPM->add(createLoopDeletionPass());
-  FPM->add(createLoopUnrollPass());          // Unroll small loops
-  FPM->add(createInstructionCombiningPass());  // Clean up after the unroller
-  FPM->add(createGVNPass());                 // Remove redundancies
-  FPM->add(createSCCPPass());                  // Constant prop with SCCP
-  FPM->add(createInstructionCombiningPass());
-  FPM->add(createJumpThreadingPass());         // Thread jumps
-  FPM->add(createDeadStoreEliminationPass());  // Delete dead stores
-  FPM->add(createAggressiveDCEPass());         // Delete dead instructions
-  FPM->add(createCFGSimplificationPass());     // Merge & remove BBs
 }
 
 void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {

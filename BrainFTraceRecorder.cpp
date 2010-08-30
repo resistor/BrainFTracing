@@ -1,4 +1,4 @@
-//===-- BrainFDriver.cpp - BrainF compiler driver -----------------------===//
+//===-- BrainFTraceRecorder.cpp - BrainF trace recorder ------------------==//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -9,7 +9,6 @@
 
 #include "BrainF.h"
 #include "BrainFVM.h"
-#include "llvm/Target/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 
 #define ITERATION_BUF_SIZE  1024
@@ -33,10 +32,6 @@ BrainFTraceRecorder::BrainFTraceRecorder()
     module(new Module("BrainF", getGlobalContext())) {
   memset(iteration_count, 0, ITERATION_BUF_SIZE);
   memset(trace_begin, 0, sizeof(std::pair<uint8_t, size_t>) * TRACE_BUF_SIZE);
-  InitializeNativeTarget();
-  EngineBuilder builder(module);
-  builder.setOptLevel(CodeGenOpt::Aggressive);
-  EE = builder.create();
   
   initialize_module();
 }
@@ -44,6 +39,7 @@ BrainFTraceRecorder::BrainFTraceRecorder()
 BrainFTraceRecorder::~BrainFTraceRecorder() {
   delete[] iteration_count;
   delete[] trace_begin;
+  delete FPM;
   delete EE;
 }
 

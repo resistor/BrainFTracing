@@ -1,27 +1,9 @@
-//===-- BrainFDriver.cpp - BrainF compiler driver -----------------------===//
+//===-- BrainFDriver.cpp - BrainF trace compiler driver -----------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
-//
-//===--------------------------------------------------------------------===//
-//
-// This program converts the BrainF language into LLVM assembly,
-// which it can then run using the JIT or output as BitCode.
-//
-// This implementation has a tape of 65536 bytes,
-// with the head starting in the middle.
-// Range checking is off by default, so be careful.
-// It can be enabled with -abc.
-//
-// Use:
-// ./BrainF -jit      prog.bf          #Run program now
-// ./BrainF -jit -abc prog.bf          #Run program now safely
-// ./BrainF           prog.bf          #Write as BitCode
-//
-// lli prog.bf.bc                      #Run generated BitCode
-// llvm-ld -native -o=prog prog.bf.bc  #Compile BitCode into native executable
 //
 //===--------------------------------------------------------------------===//
 
