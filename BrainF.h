@@ -19,6 +19,7 @@
 #include "llvm/Module.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/JIT.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/IRBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -54,6 +55,7 @@ class BrainFTraceRecorder {
   const FunctionType *op_type;
   GlobalValue *bytecode_array, *executed_flag;
   Value *getchar_func, *putchar_func;
+  FunctionPassManager *FPM;
   
   
   void commit();

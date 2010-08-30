@@ -10,7 +10,6 @@
 #include "BrainF.h"
 #include "BrainFVM.h"
 #include "llvm/Attributes.h"
-#include "llvm/PassManager.h"
 #include "llvm/Support/StandardPasses.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/Scalar.h"
@@ -46,6 +45,36 @@ void BrainFTraceRecorder::initialize_module() {
   putchar_func =
     module->getOrInsertFunction("putchar", int_type, int_type, NULL);
   getchar_func = module->getOrInsertFunction("getchar", int_type, NULL);
+  
+  FPM = new llvm::FunctionPassManager(module);
+  FPM->add(createInstructionCombiningPass());
+  FPM->add(createCFGSimplificationPass());
+  FPM->add(createScalarReplAggregatesPass());
+  FPM->add(createSimplifyLibCallsPass());    // Library Call Optimizations
+  FPM->add(createInstructionCombiningPass());  // Cleanup for scalarrepl.
+  FPM->add(createJumpThreadingPass());         // Thread jumps.
+  FPM->add(createCFGSimplificationPass());     // Merge & remove BBs
+  FPM->add(createInstructionCombiningPass());  // Combine silly seq's
+  
+  FPM->add(createCFGSimplificationPass());     // Merge & remove BBs
+  FPM->add(createReassociatePass());           // Reassociate expressions
+  // Explicitly schedule this to ensure that it runs before any loop pass.
+  FPM->add(new DominanceFrontier());           // Calculate Dominance Frontiers
+  FPM->add(createLoopRotatePass());            // Rotate Loop
+  FPM->add(createLICMPass());                  // Hoist loop invariants
+  FPM->add(createLoopUnswitchPass(false));
+  FPM->add(createInstructionCombiningPass());  
+  FPM->add(createIndVarSimplifyPass());        // Canonicalize indvars
+  FPM->add(createLoopDeletionPass());
+  FPM->add(createLoopUnrollPass());          // Unroll small loops
+  FPM->add(createInstructionCombiningPass());  // Clean up after the unroller
+  FPM->add(createGVNPass());                 // Remove redundancies
+  FPM->add(createSCCPPass());                  // Constant prop with SCCP
+  FPM->add(createInstructionCombiningPass());
+  FPM->add(createJumpThreadingPass());         // Thread jumps
+  FPM->add(createDeadStoreEliminationPass());  // Delete dead stores
+  FPM->add(createAggressiveDCEPass());         // Delete dead instructions
+  FPM->add(createCFGSimplificationPass());     // Merge & remove BBs
 }
 
 void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
@@ -72,37 +101,7 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   DataPtr = HeaderPHI;
   compile_opcode(trace, builder);
 
-  FunctionPassManager OurFPM(module);
-  OurFPM.add(createInstructionCombiningPass());
-  OurFPM.add(createCFGSimplificationPass());
-  OurFPM.add(createScalarReplAggregatesPass());
-  OurFPM.add(createSimplifyLibCallsPass());    // Library Call Optimizations
-  OurFPM.add(createInstructionCombiningPass());  // Cleanup for scalarrepl.
-  OurFPM.add(createJumpThreadingPass());         // Thread jumps.
-  OurFPM.add(createCFGSimplificationPass());     // Merge & remove BBs
-  OurFPM.add(createInstructionCombiningPass());  // Combine silly seq's
-  
-  OurFPM.add(createCFGSimplificationPass());     // Merge & remove BBs
-  OurFPM.add(createReassociatePass());           // Reassociate expressions
-  // Explicitly schedule this to ensure that it runs before any loop pass.
-  OurFPM.add(new DominanceFrontier());           // Calculate Dominance Frontiers
-  OurFPM.add(createLoopRotatePass());            // Rotate Loop
-  OurFPM.add(createLICMPass());                  // Hoist loop invariants
-  OurFPM.add(createLoopUnswitchPass(false));
-  OurFPM.add(createInstructionCombiningPass());  
-  OurFPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
-  OurFPM.add(createLoopDeletionPass());
-  OurFPM.add(createLoopUnrollPass());          // Unroll small loops
-  OurFPM.add(createInstructionCombiningPass());  // Clean up after the unroller
-  OurFPM.add(createGVNPass());                 // Remove redundancies
-  OurFPM.add(createSCCPPass());                  // Constant prop with SCCP
-  OurFPM.add(createInstructionCombiningPass());
-  OurFPM.add(createJumpThreadingPass());         // Thread jumps
-  OurFPM.add(createDeadStoreEliminationPass());  // Delete dead stores
-  OurFPM.add(createAggressiveDCEPass());         // Delete dead instructions
-  OurFPM.add(createCFGSimplificationPass());     // Merge & remove BBs
-
-  OurFPM.run(*curr_func);
+  FPM->run(*curr_func);
   
   void *code = EE->getPointerToFunction(curr_func);
   BytecodeArray[trace->pc] =
