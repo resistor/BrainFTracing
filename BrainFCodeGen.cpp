@@ -90,35 +90,53 @@ void BrainFTraceRecorder::initialize_module() {
 
 void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   LLVMContext &Context = module->getContext();
+  
+  // Create a new function for the trace we're compiling.
   Function *curr_func = cast<Function>(module->
     getOrInsertFunction("trace_"+utostr(trace->pc), op_type));
   
+  // Create an entry block, which branches directly to a header block.
+  // This is necessary because the entry block cannot be the target of
+  // a loop.
   BasicBlock *Entry = BasicBlock::Create(Context, "entry", curr_func);
   Header = BasicBlock::Create(Context, utostr(trace->pc), curr_func);
   
+  // Mark the array pointer as noalias, and setup compiler state.
   IRBuilder<> builder(Entry);
   Argument *Arg1 = ++curr_func->arg_begin();
   Arg1->addAttr(Attribute::NoAlias);
   DataPtr = Arg1;
   
+  // Emit code to set the executed flag.  This signals to the recorder
+  // that the preceding opcode was executed as a part of a compiled trace.
   const IntegerType *flag_type = IntegerType::get(Context, 8);
   ConstantInt *True = ConstantInt::get(flag_type, 1);
   builder.CreateStore(True, executed_flag);
   builder.CreateBr(Header);
   
+  // Header will be the root of our trace tree.  As such, all loop back-edges
+  // will be targetting it.  Setup a PHI node to merge together incoming values
+  // for the current array pointer as we loop.
   builder.SetInsertPoint(Header);
   HeaderPHI = builder.CreatePHI(DataPtr->getType());
   HeaderPHI->addIncoming(DataPtr, Entry);
   DataPtr = HeaderPHI;
+  
+  // Recursively descend the trace tree, emitting code for the opcodes as we go.
   compile_opcode(trace, builder);
 
+  // Run out optimization suite on our newly generated trace.
   FPM->run(*curr_func);
   
+  // Compile our trace to machine code, and install function pointer to it
+  // into the bytecode array so that it will be executed every time the 
+  // trace-head PC is reached.
   void *code = EE->getPointerToFunction(curr_func);
   BytecodeArray[trace->pc] =
     (opcode_func_t)(intptr_t)code;
 }
 
+/// compile_plus - Emit code for '+'
 void BrainFTraceRecorder::compile_plus(BrainFTraceNode *node,
                                        IRBuilder<>& builder) {
   Value *CellValue = builder.CreateLoad(DataPtr);
@@ -134,7 +152,8 @@ void BrainFTraceRecorder::compile_plus(BrainFTraceNode *node,
     builder.CreateBr(Header);
   }
 }
-                                       
+
+/// compile_minus - Emit code for '-'   
 void BrainFTraceRecorder::compile_minus(BrainFTraceNode *node,
                                         IRBuilder<>& builder) {
   Value *CellValue = builder.CreateLoad(DataPtr);
@@ -150,7 +169,8 @@ void BrainFTraceRecorder::compile_minus(BrainFTraceNode *node,
     builder.CreateBr(Header);
   }
 }
-                                                                            
+                                          
+/// compile_left - Emit code for '<'                                  
 void BrainFTraceRecorder::compile_left(BrainFTraceNode *node,
                                        IRBuilder<>& builder) {
   Value *OldPtr = DataPtr;
@@ -163,7 +183,8 @@ void BrainFTraceRecorder::compile_left(BrainFTraceNode *node,
   }
   DataPtr = OldPtr;
 }
-                                                                                                                   
+
+/// compile_right - Emit code for '>'                                                                               
 void BrainFTraceRecorder::compile_right(BrainFTraceNode *node,
                                         IRBuilder<>& builder) {
   Value *OldPtr = DataPtr;
@@ -176,7 +197,9 @@ void BrainFTraceRecorder::compile_right(BrainFTraceNode *node,
   }
   DataPtr = OldPtr;
 }
-                                                                                                                                                          
+ 
+ 
+/// compile_put - Emit code for '.'                                                                                                                                                         
 void BrainFTraceRecorder::compile_put(BrainFTraceNode *node,
                                       IRBuilder<>& builder) {
   Value *Loaded = builder.CreateLoad(DataPtr);
@@ -190,7 +213,8 @@ void BrainFTraceRecorder::compile_put(BrainFTraceNode *node,
     builder.CreateBr(Header);
   }
 }
-                                                                                                                                                                                                 
+
+/// compile_get - Emit code for ','
 void BrainFTraceRecorder::compile_get(BrainFTraceNode *node,
                                       IRBuilder<>& builder) {
   Value *Ret = builder.CreateCall(getchar_func);
@@ -204,7 +228,8 @@ void BrainFTraceRecorder::compile_get(BrainFTraceNode *node,
     builder.CreateBr(Header);
   }
 }
-                                                                                                                                                                                                                                        
+
+/// compile_if - Emit code for '['
 void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                                      IRBuilder<>& builder) {
   BasicBlock *ZeroChild = 0;
@@ -271,7 +296,8 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                                        ConstantInt::get(Loaded->getType(), 0));
   oldBuilder.CreateCondBr(Cmp, ZeroChild, NonZeroChild);
 }
-                                                                                                                                                                                                                                                                               
+
+/// compile_back - Emit code for ']'
 void BrainFTraceRecorder::compile_back(BrainFTraceNode *node,
                                        IRBuilder<>& builder) {
   if (node->right != (BrainFTraceNode*)~0ULL)
@@ -282,6 +308,8 @@ void BrainFTraceRecorder::compile_back(BrainFTraceNode *node,
   }
 }
 
+/// compile_opcode - Dispatch to a more specific compiler function based
+/// on the opcode of the current node.
 void BrainFTraceRecorder::compile_opcode(BrainFTraceNode *node,
                                          IRBuilder<>& builder) {
   switch (node->opcode) {
