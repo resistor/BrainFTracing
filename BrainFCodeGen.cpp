@@ -238,12 +238,21 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
   IRBuilder<> oldBuilder = builder;
   
   LLVMContext &Context = Header->getContext();
+  
+  // If both directions of the branch go back to the trace-head, just
+  // jump there directly.
   if (node->left == (BrainFTraceNode*)~0ULL &&
       node->right == (BrainFTraceNode*)~0ULL) {
     HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
     builder.CreateBr(Header);
     return;
   }
+  
+  // Otherwise, there are two cases to handle for each direction:
+  //   ~0ULL - A branch back to the trace head
+  //   0 - A branch out of the trace
+  //   * - A branch to a node we haven't compiled yet.
+  // Go ahead and generate code for both targets.
   
   if (node->left == (BrainFTraceNode*)~0ULL) {
     NonZeroChild = Header;
@@ -291,6 +300,7 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
     compile_opcode(node->right, builder);
   }
   
+  // Generate the test and branch to select between the targets.
   Value *Loaded = oldBuilder.CreateLoad(DataPtr);
   Value *Cmp = oldBuilder.CreateICmpEQ(Loaded, 
                                        ConstantInt::get(Loaded->getType(), 0));
