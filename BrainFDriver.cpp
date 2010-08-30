@@ -29,21 +29,27 @@ int main(int argc, char **argv) {
     abort();
   }
 
-  //Get the input stream
+  // Read the input file.
   MemoryBuffer *Code = MemoryBuffer::getFileOrSTDIN(InputFilename);
+  const uint8_t *CodeBegin = (const uint8_t*)(Code->getBufferStart());
+  
+  // Create a new buffer to hold the preprocessed code.
   MemoryBuffer *ParsedCode =
     MemoryBuffer::getNewMemBuffer(sizeof(opcode_func_t) * 
                                   (Code->getBufferSize()+1));
-  const uint8_t *CodeBegin = (const uint8_t*)(Code->getBufferStart());
   BytecodeArray = (opcode_func_t*)(ParsedCode->getBufferStart());
   size_t BytecodeOffset = 0;
   
+  // Create JumpMap, a special on-the-side data array used to implement
+  // efficient jumps in the interpreter.
   JumpMap = new size_t[Code->getBufferSize()];
   memset(JumpMap, 0, sizeof(size_t) * Code->getBufferSize());
   std::vector<size_t> Stack;
   
-  Recorder = new BrainFTraceRecorder();
-  
+  // Preprocess the input source code, performing three tasks:
+  //  1 - Remove non-instruction characters
+  //  2 - Replace character literals with opcode function pointers
+  //  3 - Precompute the jump targets for [ and ] instructions in JumpMap
   for (size_t i = 0; i < Code->getBufferSize(); ++i) {
     uint8_t opcode = CodeBegin[i];
     switch (opcode) {
@@ -80,18 +86,23 @@ int main(int argc, char **argv) {
     }
   }
   
+  // Fill in the suffix of the preprocessed source for op_exit.
+  // Thus, if we reach the end of the source, the program will terminate.
   while (BytecodeOffset < Code->getBufferSize()+1) {
     BytecodeArray[BytecodeOffset++] = &op_end;
   }
   
-  // Setup the array
+  // Setup the array.
   uint8_t *BrainFArray = new uint8_t[32768];
   memset(BrainFArray, 0, 32768);
   
-  // Main interpreter loop
-  uint8_t* data = BrainFArray;
-  BrainFTraceRecorder tracer;
+  // Setup the trace recorder.
+  Recorder = new BrainFTraceRecorder();
   
+  // Main interpreter loop.
+  // Note the lack of a explicit loop: every opcode is a tail-recursive
+  // function that calls its own successor by indexing into BytecodeArray.
+  uint8_t* data = BrainFArray;  
   BytecodeArray[0](0, data);
   
   //Clean up
