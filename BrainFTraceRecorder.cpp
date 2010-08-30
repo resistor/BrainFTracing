@@ -56,7 +56,7 @@ void BrainFTraceRecorder::BrainFTraceNode::dump(unsigned lvl) {
 }
 
 BrainFTraceRecorder::BrainFTraceRecorder()
-  : prev_opcode('+'), iteration_count(new uint8_t[ITERATION_BUF_SIZE]),
+  : iteration_count(new uint8_t[ITERATION_BUF_SIZE]),
     trace_begin(new std::pair<uint8_t, size_t>[TRACE_BUF_SIZE]),
     trace_end(trace_begin + TRACE_BUF_SIZE),
     trace_tail(trace_begin),
@@ -119,7 +119,6 @@ void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
       ++trace_tail;
     }
   }
-  prev_opcode = opcode;
 }
 
 void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
@@ -139,7 +138,7 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
       trace_tail->second = pc;
       ++trace_tail;
     }
-  } else if (opcode == '[' && prev_opcode == ']'){
+  } else if (opcode == '['){
     size_t hash = pc % ITERATION_BUF_SIZE;
     if (iteration_count[hash] == 255) iteration_count[hash] = 254;
     if (++iteration_count[hash] > COMPILE_THRESHOLD && trace_map.count(pc)) {
@@ -150,6 +149,4 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
       ++trace_tail;
     }
   }
-  
-  prev_opcode = opcode;
 }

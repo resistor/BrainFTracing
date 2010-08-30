@@ -56,6 +56,9 @@ void op_if(size_t, uint8_t*);
 // op_back - Implements the ']' instruction.
 void op_back(size_t, uint8_t*);
 
+// op_set_zero - Implements the '0' synthetic instruction.
+void op_set_zero(size_t, uint8_t*);
+
 // op_end - Terminates an execution.
 void op_end(size_t, uint8_t*);
 

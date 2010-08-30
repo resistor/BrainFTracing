@@ -63,6 +63,12 @@ void op_back(size_t pc, uint8_t *data) {
   BytecodeArray[new_pc](new_pc, data);
 }
 
+void op_set_zero(size_t pc, uint8_t *data) {
+  Recorder->record_simple(pc, '0');
+  *data = 0;
+  BytecodeArray[pc+1](pc+1, data);
+}
+
 void op_end(size_t, uint8_t *) {
   return;
 }

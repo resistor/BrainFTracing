@@ -76,10 +76,17 @@ int main(int argc, char **argv) {
         BytecodeArray[BytecodeOffset++] = &op_if;
         break;
       case ']':
-        JumpMap[Stack.back()] = BytecodeOffset;
-        JumpMap[BytecodeOffset] = Stack.back();
-        Stack.pop_back();
-        BytecodeArray[BytecodeOffset++] = &op_back;
+        // Special case: [-] --> 0
+        if (CodeBegin[i-1] == '-' && CodeBegin[i-2] == '[') {
+          Stack.pop_back();
+          BytecodeOffset -= 2;
+          BytecodeArray[BytecodeOffset++] = &op_set_zero;
+        } else {
+          JumpMap[Stack.back()] = BytecodeOffset;
+          JumpMap[BytecodeOffset] = Stack.back();
+          Stack.pop_back();
+          BytecodeArray[BytecodeOffset++] = &op_back;
+        }
         break;
       default:
         continue;

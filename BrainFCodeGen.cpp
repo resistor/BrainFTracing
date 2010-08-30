@@ -318,6 +318,20 @@ void BrainFTraceRecorder::compile_back(BrainFTraceNode *node,
   }
 }
 
+/// compile_set_zero - Emit Code for '0'
+void BrainFTraceRecorder::compile_set_zero(BrainFTraceNode *node,
+                                           IRBuilder<>& builder) {
+  Constant *Zero =
+    ConstantInt::get(IntegerType::getInt8Ty(Header->getContext()), 0);
+  builder.CreateStore(Zero, DataPtr);
+  if (node->left != (BrainFTraceNode*)~0ULL)
+    compile_opcode(node->left, builder);
+  else {
+    HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
+    builder.CreateBr(Header);
+  }
+}
+
 /// compile_opcode - Dispatch to a more specific compiler function based
 /// on the opcode of the current node.
 void BrainFTraceRecorder::compile_opcode(BrainFTraceNode *node,
@@ -347,5 +361,10 @@ void BrainFTraceRecorder::compile_opcode(BrainFTraceNode *node,
     case ']':
       compile_back(node, builder);
       break;
+    case '0':
+      compile_set_zero(node, builder);
+      break;
+    default:
+      assert(0 && "Unknown opcode?");
   }
 }

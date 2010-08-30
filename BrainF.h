@@ -36,7 +36,6 @@ class BrainFTraceRecorder {
     BrainFTraceNode *left, *right;
   };
   
-  uint8_t prev_opcode;
   uint8_t *iteration_count;
   std::pair<uint8_t, size_t> *trace_begin, *trace_end, *trace_tail;
   DenseMap<size_t, BrainFTraceNode*> trace_map;
@@ -64,7 +63,8 @@ class BrainFTraceRecorder {
   void compile_put(BrainFTraceNode *node, IRBuilder<>& builder);
   void compile_get(BrainFTraceNode *node, IRBuilder<>& builder);
   void compile_if(BrainFTraceNode *node, IRBuilder<>& builder);
-  void compile_back(BrainFTraceNode *node, IRBuilder<>& builder);                                        
+  void compile_back(BrainFTraceNode *node, IRBuilder<>& builder);  
+  void compile_set_zero(BrainFTraceNode *node, IRBuilder<>& builder);                                        
   
 public:
   BrainFTraceRecorder();
