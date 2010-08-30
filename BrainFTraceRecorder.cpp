@@ -6,6 +6,37 @@
 // License. See LICENSE.TXT for details.
 //
 //===--------------------------------------------------------------------===//
+// 
+// This class observes the execution trace of the interpreter, identifying
+// hot traces and eventually compiling them to native code.
+//
+// The operation of the recorder can be divided into four parts:
+//   1) Interation Counting - To identify hot traces, we track the execution
+//      counts of all loop headers ('[' instructions).  We use a fixed-size
+//      array of counters for this, since lack of precision does not affect
+//      correctness.
+//
+//   2) Trace Buffering - Once a header has passed a hotness threshold, we 
+//      begin buffering the execution trace beginning from that header the
+//      next time it is executed.  This buffer is of a fixed length, though
+//      that choice can be tuned for performance.  If the end of the buffer
+//      is reached without execution returning to the header, we throw out
+//      the trace.
+//
+//   3) Trace Commit - If the buffered trace returns to the header before 
+//      the buffer limit is reached, that trace is commited to form a trace
+//      tree.  This tree aggregates all execution traces that have been 
+//      observed originating from the header since it passed the hotness
+//      threshold.  The buffer is then cleared to allow a new trace to be
+//      recorded.
+//
+//   4) Trace Compilation - Once a secondary hotness threshold is reached,
+//      trace recording is terminated and the set of observed traces encoded
+//      in the trace tree are compiled to native code, and a function pointer
+//      to that trace is installed into the bytecode array in place of one of
+//      the normal opcode functions.  Details of this compilation are in
+//      BrainFCodeGen.cpp
+//===--------------------------------------------------------------------===//
 
 #include "BrainF.h"
 #include "BrainFVM.h"
