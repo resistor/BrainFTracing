@@ -1,4 +1,4 @@
-//===-- BrainFCodeGen.cpp - BrainF compiler driver -----------------------===//
+//===-- BrainFCodeGen.cpp - BrainF trace compiler -----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
