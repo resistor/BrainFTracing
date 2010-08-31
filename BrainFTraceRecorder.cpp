@@ -56,7 +56,7 @@ void BrainFTraceRecorder::BrainFTraceNode::dump(unsigned lvl) {
 }
 
 BrainFTraceRecorder::BrainFTraceRecorder()
-  : iteration_count(new uint8_t[ITERATION_BUF_SIZE]),
+  : mode(MODE_PROFILING), iteration_count(new uint8_t[ITERATION_BUF_SIZE]),
     trace_begin(new std::pair<uint8_t, size_t>[TRACE_BUF_SIZE]),
     trace_end(trace_begin + TRACE_BUF_SIZE),
     trace_tail(trace_begin),
@@ -110,9 +110,10 @@ void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
     trace_tail = trace_begin;
   }
   
-  if (trace_tail != trace_begin) {
+  if (mode == MODE_RECORDING) {
     if (trace_tail == trace_end) {
       trace_tail = trace_begin;
+      mode = MODE_PROFILING;
     } else {
       trace_tail->first = opcode;
       trace_tail->second = pc;
@@ -127,18 +128,19 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
     trace_tail = trace_begin;
   }
   
-  if (trace_tail != trace_begin) {
+  if (mode == MODE_RECORDING) {
     if (pc == trace_begin->second) {
       commit();
       trace_tail = trace_begin;
     } else if (trace_tail == trace_end) {
       trace_tail = trace_begin;
+      mode = MODE_PROFILING;
     } else {
       trace_tail->first = opcode;
       trace_tail->second = pc;
       ++trace_tail;
     }
-  } else if (opcode == '['){
+  } else if (mode == MODE_PROFILING){
     size_t hash = pc % ITERATION_BUF_SIZE;
     if (iteration_count[hash] == 255) iteration_count[hash] = 254;
     if (++iteration_count[hash] > COMPILE_THRESHOLD && trace_map.count(pc)) {
@@ -147,6 +149,7 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
       trace_tail->first = opcode;
       trace_tail->second = pc;
       ++trace_tail;
+      mode = MODE_RECORDING;
     }
   }
 }

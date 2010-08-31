@@ -36,6 +36,10 @@ class BrainFTraceRecorder {
     BrainFTraceNode *left, *right;
   };
   
+  static const uint8_t MODE_PROFILING = 0;
+  static const uint8_t MODE_RECORDING = 1;
+  uint8_t mode;
+  
   uint8_t *iteration_count;
   std::pair<uint8_t, size_t> *trace_begin, *trace_end, *trace_tail;
   DenseMap<size_t, BrainFTraceNode*> trace_map;
