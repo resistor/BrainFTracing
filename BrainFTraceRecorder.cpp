@@ -107,7 +107,6 @@ void BrainFTraceRecorder::commit() {
 void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
   if (mode == MODE_RECORDING) {
     if (trace_tail == trace_end) {
-      trace_tail = trace_begin;
       mode = MODE_PROFILING;
     } else {
       trace_tail->first = opcode;
@@ -123,7 +122,6 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
       commit();
       trace_tail = trace_begin;
     } else if (trace_tail == trace_end) {
-      trace_tail = trace_begin;
       mode = MODE_PROFILING;
     } else {
       trace_tail->first = opcode;
