@@ -44,7 +44,7 @@
 
 #define ITERATION_BUF_SIZE  1024
 #define TRACE_BUF_SIZE       256
-#define TRACE_THRESHOLD      50
+#define TRACE_THRESHOLD      2
 #define COMPILE_THRESHOLD    200
 
 void BrainFTraceRecorder::BrainFTraceNode::dump(unsigned lvl) {
@@ -108,11 +108,15 @@ void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
   if (mode == MODE_RECORDING) {
     if (trace_tail == trace_end) {
       mode = MODE_PROFILING;
+      record_simple(pc, opcode);
     } else {
       trace_tail->first = opcode;
       trace_tail->second = pc;
       ++trace_tail;
     }
+  } else if (mode == MODE_EXTENSION_BEGIN) {
+    mode = MODE_PROFILING;
+    record_simple(pc, opcode);
   }
 }
 
@@ -120,9 +124,11 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
   if (mode == MODE_RECORDING) {
     if (pc == trace_begin->second) {
       commit();
-      trace_tail = trace_begin;
+      mode = MODE_PROFILING;
+      record(pc, opcode);
     } else if (trace_tail == trace_end) {
       mode = MODE_PROFILING;
+      record(pc, opcode);
     } else {
       trace_tail->first = opcode;
       trace_tail->second = pc;
@@ -139,5 +145,8 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
       trace_tail = trace_begin+1;
       mode = MODE_RECORDING;
     }
+  } else if (mode == MODE_EXTENSION_BEGIN) {
+    mode = MODE_PROFILING;
+    record(pc, opcode);
   }
 }

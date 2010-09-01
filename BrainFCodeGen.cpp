@@ -120,7 +120,7 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   // Emit code to set the mode flag.  This signals to the recorder
   // that the preceding opcode was executed as a part of a compiled trace.
   const IntegerType *flag_type = IntegerType::get(Context, 8);
-  ConstantInt *Mode = ConstantInt::get(flag_type, MODE_PROFILING);
+  ConstantInt *Mode = ConstantInt::get(flag_type, MODE_EXTENSION_BEGIN);
   builder.CreateStore(Mode, mode_flag);
   
   // Emit code to set the extension root, which is a pointer to the
