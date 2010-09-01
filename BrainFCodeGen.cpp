@@ -234,8 +234,7 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                                      IRBuilder<>& builder) {
   BasicBlock *ZeroChild = 0;
   BasicBlock *NonZeroChild = 0;
-  
-  IRBuilder<> oldBuilder = builder;
+  BasicBlock *Parent = builder.GetInsertBlock();
   
   LLVMContext &Context = Header->getContext();
   
@@ -256,7 +255,7 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
   
   if (node->left == (BrainFTraceNode*)~0ULL) {
     NonZeroChild = Header;
-    HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
+    HeaderPHI->addIncoming(DataPtr, Parent);
   } else if (node->left == 0) {
     NonZeroChild = BasicBlock::Create(Context,
                                    "exit_left_"+utostr(node->pc),
@@ -279,7 +278,7 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
   
   if (node->right == (BrainFTraceNode*)~0ULL) {
     ZeroChild = Header;
-    HeaderPHI->addIncoming(DataPtr, builder.GetInsertBlock());
+    HeaderPHI->addIncoming(DataPtr, Parent);
   } else if (node->right == 0) {
     ZeroChild = BasicBlock::Create(Context,
                                    "exit_right_"+utostr(node->pc),
@@ -301,10 +300,11 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
   }
   
   // Generate the test and branch to select between the targets.
-  Value *Loaded = oldBuilder.CreateLoad(DataPtr);
-  Value *Cmp = oldBuilder.CreateICmpEQ(Loaded, 
+  builder.SetInsertPoint(Parent);
+  Value *Loaded = builder.CreateLoad(DataPtr);
+  Value *Cmp = builder.CreateICmpEQ(Loaded, 
                                        ConstantInt::get(Loaded->getType(), 0));
-  oldBuilder.CreateCondBr(Cmp, ZeroChild, NonZeroChild);
+  builder.CreateCondBr(Cmp, ZeroChild, NonZeroChild);
 }
 
 /// compile_back - Emit code for ']'
