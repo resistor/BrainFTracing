@@ -39,6 +39,7 @@ class BrainFTraceRecorder {
   static const uint8_t MODE_PROFILING = 0;
   static const uint8_t MODE_RECORDING = 1;
   static const uint8_t MODE_EXTENSION_BEGIN = 2;
+  static const uint8_t MODE_EXTENSION = 3;
 
   uint8_t mode;
   BrainFTraceNode *extension_root, *extension_leaf;
@@ -60,6 +61,7 @@ class BrainFTraceRecorder {
   
   
   void commit();
+  void commit_extension();
   void initialize_module();
   void compile(BrainFTraceNode* trace);
   void compile_opcode(BrainFTraceNode *node, IRBuilder<>& builder);
