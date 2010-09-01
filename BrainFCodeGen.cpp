@@ -79,6 +79,16 @@ void BrainFTraceRecorder::initialize_module() {
   mode_flag =
     cast<GlobalValue>(module->getOrInsertGlobal("mode", flag_type));
   EE->addGlobalMapping(mode_flag, &mode);
+  
+  // Setup a similar mapping for the global extension root flag.
+  ext_root =
+    cast<GlobalValue>(module->getOrInsertGlobal("ext_root", int_type));
+  EE->addGlobalMapping(ext_root, &extension_root);
+  
+  // Setup a similar mapping for the global extension leaf flag.
+  ext_leaf =
+    cast<GlobalValue>(module->getOrInsertGlobal("ext_leaf", int_type));
+  EE->addGlobalMapping(ext_leaf, &extension_leaf);
 
   // Cache LLVM declarations for putchar() and getchar().
   const Type *int_type = sizeof(int) == 4 ? IntegerType::getInt32Ty(Context)
@@ -112,6 +122,11 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   const IntegerType *flag_type = IntegerType::get(Context, 8);
   ConstantInt *Mode = ConstantInt::get(flag_type, MODE_PROFILING);
   builder.CreateStore(Mode, mode_flag);
+  
+  // Emit code to set the extension root, which is a pointer to the
+  // root of the trace tree.
+  ConstantInt *ExtRoot = ConstantInt::get(int_type, (intptr_t)trace);
+  builder.CreateStore(ExtRoot, ext_root);
   builder.CreateBr(Header);
   
   // Header will be the root of our trace tree.  As such, all loop back-edges
@@ -261,6 +276,12 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                                    "exit_left_"+utostr(node->pc),
                                    Header->getParent());
     builder.SetInsertPoint(NonZeroChild);
+    
+    // Set the extension leaf, which is a pointer to the leaf of the trace
+    // tree from which we are side exiting.
+    ConstantInt *ExtLeaf = ConstantInt::get(int_type, (intptr_t)node);
+    builder.CreateStore(ExtLeaf, ext_leaf);
+    
     ConstantInt *NewPc = ConstantInt::get(int_type, node->pc+1);
     Value *BytecodeIndex =
       builder.CreateConstInBoundsGEP1_32(bytecode_array, node->pc+1);
@@ -284,6 +305,12 @@ void BrainFTraceRecorder::compile_if(BrainFTraceNode *node,
                                    "exit_right_"+utostr(node->pc),
                                    Header->getParent());
     builder.SetInsertPoint(ZeroChild);
+    
+    // Set the extension leaf, which is a pointer to the leaf of the trace
+    // tree from which we are side exiting.
+    ConstantInt *ExtLeaf = ConstantInt::get(int_type, (intptr_t)node);
+    builder.CreateStore(ExtLeaf, ext_leaf);
+    
     ConstantInt *NewPc = ConstantInt::get(int_type, JumpMap[node->pc]+1);
     Value *BytecodeIndex =
       builder.CreateConstInBoundsGEP1_32(bytecode_array, JumpMap[node->pc]+1);

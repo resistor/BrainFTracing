@@ -38,7 +38,9 @@ class BrainFTraceRecorder {
   
   static const uint8_t MODE_PROFILING = 0;
   static const uint8_t MODE_RECORDING = 1;
+
   uint8_t mode;
+  BrainFTraceNode *extension_root, *extension_leaf;
   
   uint8_t *iteration_count;
   std::pair<uint8_t, size_t> *trace_begin, *trace_end, *trace_tail;
@@ -51,7 +53,7 @@ class BrainFTraceRecorder {
 
   const IntegerType *int_type;
   const FunctionType *op_type;
-  GlobalValue *bytecode_array, *mode_flag;
+  GlobalValue *bytecode_array, *mode_flag, *ext_root, *ext_leaf;
   Value *getchar_func, *putchar_func;
   FunctionPassManager *FPM;
   
