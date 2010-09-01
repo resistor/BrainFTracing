@@ -74,11 +74,11 @@ void BrainFTraceRecorder::initialize_module() {
     getOrInsertGlobal("BytecodeArray", bytecode_type));
   EE->addGlobalMapping(bytecode_array, BytecodeArray);
   
-  // Setup a similar mapping for the global executed flag.
+  // Setup a similar mapping for the global mode flag.
   const IntegerType *flag_type = IntegerType::get(Context, 8);
-  executed_flag =
-    cast<GlobalValue>(module->getOrInsertGlobal("executed", flag_type));
-  EE->addGlobalMapping(executed_flag, &executed);
+  mode_flag =
+    cast<GlobalValue>(module->getOrInsertGlobal("mode", flag_type));
+  EE->addGlobalMapping(mode_flag, &mode);
 
   // Cache LLVM declarations for putchar() and getchar().
   const Type *int_type = sizeof(int) == 4 ? IntegerType::getInt32Ty(Context)
@@ -107,11 +107,11 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   Arg1->addAttr(Attribute::NoAlias);
   DataPtr = Arg1;
   
-  // Emit code to set the executed flag.  This signals to the recorder
+  // Emit code to set the mode flag.  This signals to the recorder
   // that the preceding opcode was executed as a part of a compiled trace.
   const IntegerType *flag_type = IntegerType::get(Context, 8);
-  ConstantInt *True = ConstantInt::get(flag_type, 1);
-  builder.CreateStore(True, executed_flag);
+  ConstantInt *Mode = ConstantInt::get(flag_type, MODE_PROFILING);
+  builder.CreateStore(Mode, mode_flag);
   builder.CreateBr(Header);
   
   // Header will be the root of our trace tree.  As such, all loop back-edges

@@ -25,10 +25,6 @@ extern opcode_func_t *BytecodeArray;
 /// Indexed by PC address.
 extern size_t *JumpMap;
 
-/// executed - A flag indicating whether the preceding opcode was evaluated
-/// within a compiled trace execution.  Used by the trace recorder.
-extern uint8_t executed;
-
 /// Recorder - The trace recording engine.
 extern BrainFTraceRecorder *Recorder;
 

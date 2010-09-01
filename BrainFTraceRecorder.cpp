@@ -105,11 +105,6 @@ void BrainFTraceRecorder::commit() {
 }
 
 void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
-  if (executed) {
-    executed = false;
-    trace_tail = trace_begin;
-  }
-  
   if (mode == MODE_RECORDING) {
     if (trace_tail == trace_end) {
       trace_tail = trace_begin;
@@ -123,11 +118,6 @@ void BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode) {
 }
 
 void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
-  if (executed) {
-    executed = false;
-    trace_tail = trace_begin;
-  }
-  
   if (mode == MODE_RECORDING) {
     if (pc == trace_begin->second) {
       commit();
@@ -146,9 +136,9 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode) {
     if (++iteration_count[hash] > COMPILE_THRESHOLD && trace_map.count(pc)) {
       compile(trace_map[pc]);
     } else if (++iteration_count[hash] > TRACE_THRESHOLD) {
-      trace_tail->first = opcode;
-      trace_tail->second = pc;
-      ++trace_tail;
+      trace_begin->first = opcode;
+      trace_begin->second = pc;
+      trace_tail = trace_begin+1;
       mode = MODE_RECORDING;
     }
   }
