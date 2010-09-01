@@ -102,8 +102,8 @@ void BrainFTraceRecorder::compile(BrainFTraceNode* trace) {
   LLVMContext &Context = module->getContext();
   
   // Create a new function for the trace we're compiling.
-  Function *curr_func = cast<Function>(module->
-    getOrInsertFunction("trace_"+utostr(trace->pc), op_type));
+  Function *curr_func =  
+    Function::Create(op_type, Function::ExternalLinkage, "", module);
   
   // Create an entry block, which branches directly to a header block.
   // This is necessary because the entry block cannot be the target of
