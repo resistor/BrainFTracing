@@ -18,54 +18,54 @@ uint8_t mode = 0;
 BrainFTraceRecorder *Recorder = 0;
 
 void op_plus(size_t pc, uint8_t *data) {
-  Recorder->record_simple(pc, '+');
+  Recorder->record_simple(pc, '+', pc+1);
   *data += 1;
   BytecodeArray[pc+1](pc+1, data);
 }
 
 void op_minus(size_t pc, uint8_t *data) {
-  Recorder->record_simple(pc, '-');
+  Recorder->record_simple(pc, '-', pc+1);
   *data -= 1;
   BytecodeArray[pc+1](pc+1, data);
 }
 
 void op_left(size_t pc, uint8_t *data) {
-  Recorder->record_simple(pc, '<');
+  Recorder->record_simple(pc, '<', pc+1);
   BytecodeArray[pc+1](pc+1, data-1);
 }
 
 void op_right(size_t pc, uint8_t *data) {
-  Recorder->record_simple(pc, '>');
+  Recorder->record_simple(pc, '>', pc+1);
   BytecodeArray[pc+1](pc+1, data+1);
 }
 
 void op_put(size_t pc, uint8_t *data) {
-  Recorder->record_simple(pc, '.');
+  Recorder->record_simple(pc, '.', pc+1);
   putchar(*data);
   BytecodeArray[pc+1](pc+1, data);
 }
 
 void op_get(size_t pc, uint8_t *data) {
-  Recorder->record_simple(pc, ',');
+  Recorder->record_simple(pc, ',', pc+1);
   *data = getchar();
   BytecodeArray[pc+1](pc+1, data);
 }
 
 void op_if(size_t pc, uint8_t *data) {
-  Recorder->record(pc, '[');
   size_t new_pc = pc+1;
   if (!*data) new_pc = JumpMap[pc]+1;
+  Recorder->record(pc, '[', new_pc);
   BytecodeArray[new_pc](new_pc, data);
 }
 
 void op_back(size_t pc, uint8_t *data) {
-  Recorder->record_simple(pc, ']');
   size_t new_pc = JumpMap[pc];
+  Recorder->record(pc, ']', new_pc);
   BytecodeArray[new_pc](new_pc, data);
 }
 
 void op_set_zero(size_t pc, uint8_t *data) {
-  Recorder->record_simple(pc, '0');
+  Recorder->record_simple(pc, '0', pc+1);
   *data = 0;
   BytecodeArray[pc+1](pc+1, data);
 }

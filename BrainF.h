@@ -26,8 +26,9 @@ class BrainFTraceRecorder {
   struct BrainFTraceNode {
     uint8_t opcode;
     size_t pc;
-    BrainFTraceNode(uint8_t o, size_t p)
-      : opcode(o), pc(p), left(0), right(0) { }
+    size_t depth;
+    BrainFTraceNode(uint8_t o, size_t p, size_t d)
+      : opcode(o), pc(p), depth(d), left(0), right(0)  { }
     void dump(unsigned level);
     
     // On an if, left is the x != 0 edge.
@@ -47,6 +48,7 @@ class BrainFTraceRecorder {
   uint8_t *iteration_count;
   std::pair<uint8_t, size_t> *trace_begin, *trace_end, *trace_tail;
   DenseMap<size_t, BrainFTraceNode*> trace_map;
+  DenseMap<size_t, size_t> size_map;
   Module *module;
   BasicBlock *Header;
   Value *DataPtr;
@@ -79,8 +81,8 @@ public:
   BrainFTraceRecorder();
   ~BrainFTraceRecorder();
   
-  void record(size_t pc, uint8_t opcode);
-  void record_simple(size_t pc, uint8_t opcode);
+  void record(size_t pc, uint8_t opcode, size_t next_pc);
+  void record_simple(size_t pc, uint8_t opcode, size_t next_pc);
 };
 
 #endif
