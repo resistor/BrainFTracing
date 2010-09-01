@@ -42,13 +42,15 @@ class BrainFTraceRecorder {
   static const uint8_t MODE_EXTENSION_BEGIN = 2;
   static const uint8_t MODE_EXTENSION = 3;
 
+  size_t backedge_count;
+
   uint8_t mode;
   BrainFTraceNode *extension_root, *extension_leaf;
   
   uint8_t *iteration_count;
   std::pair<uint8_t, size_t> *trace_begin, *trace_end, *trace_tail;
   DenseMap<size_t, BrainFTraceNode*> trace_map;
-  DenseMap<size_t, size_t> size_map;
+  DenseSet<size_t> blacklist;
   Module *module;
   BasicBlock *Header;
   Value *DataPtr;

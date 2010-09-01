@@ -45,6 +45,7 @@
 #define ITERATION_BUF_SIZE  1024
 #define TRACE_BUF_SIZE       128
 #define TRACE_THRESHOLD      100
+#define BACKEDGE_THRESHOLD     5
 
 void BrainFTraceRecorder::BrainFTraceNode::dump(unsigned lvl) {
   for (unsigned i = 0; i < lvl; ++i)
@@ -136,18 +137,48 @@ void BrainFTraceRecorder::commit_extension() {
 void
 BrainFTraceRecorder::record_simple(size_t pc, uint8_t opcode, size_t next_pc) {
   if (mode == MODE_RECORDING) {
+    if (opcode == ']' && next_pc != trace_begin->second) {
+      ++backedge_count;
+      if (backedge_count > BACKEDGE_THRESHOLD) {
+        backedge_count = 0;
+        mode = MODE_PROFILING;
+        return;
+      }
+    }
+    
     if (trace_tail == trace_end) {
       mode = MODE_PROFILING;
     } else {
       trace_tail->first = opcode;
       trace_tail->second = pc;
       ++trace_tail;
+      
+      if (next_pc == trace_begin->second) {
+        commit();
+        compile(trace_map[next_pc]);
+        mode = MODE_PROFILING;
+      }
     }
   } else if (mode == MODE_EXTENSION_BEGIN) {
-    trace_tail = trace_begin;
-    mode = MODE_EXTENSION;
-    record_simple(pc, opcode, next_pc);
+    if (blacklist.count(pc)) {
+      mode = MODE_PROFILING;
+    } else {
+      trace_tail = trace_begin;
+      backedge_count = 0;
+      mode = MODE_EXTENSION;
+      record_simple(pc, opcode, next_pc);
+    }
   } else if (mode == MODE_EXTENSION) {
+    if (opcode == ']' && next_pc != extension_root->pc) {
+      ++backedge_count;
+      if (backedge_count > BACKEDGE_THRESHOLD) {
+        blacklist.insert(trace_begin->second);
+        backedge_count = 0;
+        mode = MODE_PROFILING;
+        return;
+      }
+    }
+    
     if (trace_tail + extension_leaf->depth >= trace_end) {
       mode = MODE_PROFILING;
     } else {
@@ -187,6 +218,7 @@ void BrainFTraceRecorder::record(size_t pc, uint8_t opcode, size_t next_pc) {
       trace_begin->first = opcode;
       trace_begin->second = pc;
       trace_tail = trace_begin+1;
+      backedge_count = 0;
       mode = MODE_RECORDING;
     }
   } else if (mode == MODE_EXTENSION_BEGIN) {

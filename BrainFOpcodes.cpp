@@ -60,7 +60,7 @@ void op_if(size_t pc, uint8_t *data) {
 
 void op_back(size_t pc, uint8_t *data) {
   size_t new_pc = JumpMap[pc];
-  Recorder->record(pc, ']', new_pc);
+  Recorder->record_simple(pc, ']', new_pc);
   BytecodeArray[new_pc](new_pc, data);
 }
 
